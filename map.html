@@ -296,7 +296,7 @@
 
       <div class="card">
         <h2>🛣️ 每日自駕車程（OSRM 實算）</h2>
-        <p class="small">下為純行車時間，不含景點停留／遊湖／吃飯。全程總計約 <b>1,123 km / 15.3 h</b>（不含 D5 國王湖當日往返 1.6 h）。</p>
+        <p class="small">下為純行車時間，不含景點停留／遊湖／吃飯。全程總計約 <b>1,123 km / 15.3 h</b>（不含 D5 國王湖當日往返 1.6 h）。地圖上橘色粗線＝依實際道路計算（OSRM）的行車路線。</p>
         <table>
           <tr><th>日</th><th>路線</th><th>距離</th><th>行車</th></tr>
           <tr><td>D3-1</td><td>布拉格安德區 → Konopiště 城堡</td><td>51 km</td><td>0.7 h</td></tr>
@@ -486,6 +486,9 @@
         <button class="btn-primary" onclick="applyEdits()">套用變更</button>
         <button class="btn-ghost" onclick="resetEdits()">還原</button>
         <button class="btn-ghost" onclick="downloadMap()">⬇️ 下載編輯後的網頁</button>
+        <button class="btn-ghost" id="routeBtn" onclick="toggleRoadRoute()" style="margin-left:10px">🛣️ 啟用真實道路路線</button>
+        <button class="btn-ghost" onclick="recalcRoute()" style="margin-left:6px">🔄 重算路線</button>
+        <span class="small" style="margin-left:6px">地圖上橘色粗線＝依實際道路計算的行車路線；拖動標記後會自動重算</span>
       </div>
       <div class="paste-zone">
         <h3>📋 Google Maps 快速貼上</h3>
@@ -643,6 +646,7 @@ const ROUTE = [
 /* ===ROUTE_END=== */
 
 const COLORS = {spot:"#2980b9", stay:"#e67e22", stay_missing:"#c0392b", food:"#16A34A"};
+const ROUTE_HEX = "#c2410c";
 
 const map = L.map('map', {zoomControl:true}).setView([49.0,14.0], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -650,7 +654,11 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 let markersLayer = L.layerGroup().addTo(map);
-let routeLine = null;
+// ---- 真實道路路線（OSRM / 直線示意）狀態 ----
+let routeLayers = null;
+let routeRoadOn = true;
+let routeCache = new Map();
+let routeBusy = false, routeReady = false, lastRoute = '', routeGen = 0;
 
 function render(){
   markersLayer.clearLayers();
@@ -677,17 +685,78 @@ function render(){
     });
     markersLayer.addLayer(m);
   });
-  // route line
-  if(routeLine) map.removeLayer(routeLine);
+  // route line（真實道路 OSRM / 直線示意）
   const pts = ROUTE.map(name=>{
     const f = PLACES.find(p=>p.name===name);
     return f ? [f.lat,f.lng] : null;
   }).filter(Boolean);
-  if(pts.length>1){
-    routeLine = L.polyline(pts, {color:'#c0392b', weight:3, dashArray:'8,6', opacity:.8}).addTo(map);
-  }
+  drawRouteInRender(pts);
 }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ---- 真實道路路線（OSRM 依實際道路計算） ----
+function routePtsKey(pts){ return pts.map(P=>P[0].toFixed(4)+','+P[1].toFixed(4)).join(';'); }
+function routeSegKey(a,b){ return a[0].toFixed(4)+','+a[1].toFixed(4)+'|'+b[0].toFixed(4)+','+b[1].toFixed(4); }
+async function osrmSeg(a,b){
+  const urls=[
+    'https://router.project-osrm.org/route/v1/driving/'+a[1]+','+a[0]+';'+b[1]+','+b[0]+'?overview=full&geometries=geojson&steps=false',
+    'https://routing.openstreetmap.de/routed-car/route/v1/driving/'+a[1]+','+a[0]+';'+b[1]+','+b[0]+'?overview=full&geometries=geojson&steps=false'
+  ];
+  for(const u of urls){
+    try{
+      const resp=await fetch(u,{headers:{'Accept':'application/json'}});
+      if(!resp.ok) continue;
+      const j=await resp.json();
+      const g=j&&j.routes&&j.routes[0]&&j.routes[0].geometry;
+      if(g&&g.coordinates&&Array.isArray(g.coordinates)&&g.coordinates.length>=2){
+        return g.coordinates.map(c=>[+c[1].toFixed(5), +c[0].toFixed(5)]);
+      }
+    }catch(e){}
+  }
+  return null;
+}
+async function computeRoad(pts, token){
+  routeBusy=true;
+  try{
+    for(let k=0;k<pts.length-1;k++){
+      if(routeGen!==token) return;
+      const a=pts[k], b=pts[k+1], key=routeSegKey(a,b);
+      let seg=routeCache.get(key);
+      if(seg===undefined){ seg=await osrmSeg(a,b); routeCache.set(key, seg||null); }
+      if(routeGen!==token) return;
+      if(!routeLayers) continue;
+      const hasRoad=Array.isArray(seg);
+      routeLayers.addLayer(L.polyline(hasRoad?seg:[a,b],{color:hasRoad?ROUTE_HEX:'#b91c1c',weight:hasRoad?3:2.5,dashArray:hasRoad?null:'6,6',opacity:.8}));
+    }
+    routeReady=true;
+    if(routeLayers&&routeLayers.getLayers&&routeLayers.getLayers().length){
+      routeLayers.removeLayer(routeLayers.getLayers()[0]); // 移除起點的佔位虛線
+    }
+  }finally{ routeBusy=false; }
+}
+function routeLineFromCache(pts){
+  routeLayers=L.layerGroup().addTo(map);
+  for(let k=0;k<pts.length-1;k++){
+    const seg=routeCache.get(routeSegKey(pts[k],pts[k+1]));
+    const hasRoad=Array.isArray(seg);
+    routeLayers.addLayer(L.polyline(hasRoad?seg:[pts[k],pts[k+1]],{color:hasRoad?ROUTE_HEX:'#b91c1c',weight:hasRoad?3:2.5,dashArray:hasRoad?null:'6,6',opacity:.8}));
+  }
+}
+function drawRouteInRender(pts){
+  if(routeLayers){ map.removeLayer(routeLayers); routeLayers=null; }
+  if(pts.length<2) return;
+  const key=routePtsKey(pts);
+  if(!routeRoadOn){
+    routeLayers=L.layerGroup().addTo(map);
+    routeLayers.addLayer(L.polyline(pts,{color:'#b91c1c',weight:3,dashArray:'8,6',opacity:.55}));
+    routeReady=false; lastRoute='';
+    return;
+  }
+  if(routeReady && key===lastRoute){ routeLineFromCache(pts); return; }
+  routeLayers=L.layerGroup().addTo(map);
+  routeLayers.addLayer(L.polyline(pts,{color:'#b91c1c',weight:2.5,dashArray:'8,6',opacity:.45}));
+  if(!routeBusy){ lastRoute=key; const token=++routeGen; computeRoad(pts, token); }
+}
 
 // 點地圖空白處新增標記
 map.on('click', e=>{
@@ -986,6 +1055,19 @@ function delRow(i){
 function resetEdits(){ location.reload(); }
 function setMsg(t,err){ const m=document.getElementById('msg'); m.textContent=t; m.style.color=err?'#c0392b':'#27ae60'; }
 
+function toggleRoadRoute(){
+  routeRoadOn = !routeRoadOn;
+  const b=document.getElementById('routeBtn');
+  if(b) b.textContent = routeRoadOn ? '🛣️ 取消真實道路' : '🛣️ 啟用真實道路路線';
+  render();
+  setMsg(routeRoadOn ? '🛣️ 路線已改用 OSRM 依實際道路計算（橘色粗線）；拖動標記後自動重算' : '🛣️ 已關閉真實道路，改以紅色虛線示意', false);
+}
+function recalcRoute(){
+  routeCache.clear(); routeReady=false; routeBusy=false; lastRoute='';
+  render();
+  setMsg('🔄 已清除路線快取並重新計算…', false);
+}
+
 async function addByAddress(){
   const q = document.getElementById('addr').value.trim();
   if(!q){ setMsg("請輸入地址", true); return; }
@@ -1023,6 +1105,8 @@ function downloadMap(){
 // init
 buildEditor();
 render();
+// 依目前路線模式同步按鈕文字
+const __rb=document.getElementById('routeBtn'); if(__rb) __rb.textContent=routeRoadOn?'🛣️ 取消真實道路':'🛣️ 啟用真實道路路線';
 // 地圖高度改為固定 vh 後，載入完成再校正一次圖磚尺寸
 setTimeout(()=>{ if(typeof map.invalidateSize==='function') map.invalidateSize(); },150);
 </script>
