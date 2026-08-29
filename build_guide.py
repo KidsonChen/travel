@@ -114,7 +114,7 @@ a{color:var(--blue2);text-decoration:none}
 def esc(s): return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
 
 days = sorted({p['day'] for p in PLACES}, key=lambda x:(x if isinstance(x,int) else 999))
-toc = ''.join(f'<a href="#day{d}">Day {d}</a>' for d in days if isinstance(d,int))
+toc = ''.join(f'<a href="#day{d}">Day {d}</a>' for d in days if isinstance(d,int)) + '<a href="#pocket">口袋名單</a>'
 
 spots_html = ''
 for d in days:
@@ -147,6 +147,39 @@ for d in days:
   </div>
   {cards}''')
 
+POCKET = r'''
+<section class="foot" id="pocket">
+  <h2>🎒 布拉格口袋名單（影片攻略補充）</h2>
+  <p style="font-size:13px;color:#777;margin:2px 0 10px">以下整理自旅遊影片章節標記 [mm:ss]，可作為上述 Day1–Day2 的額外口袋清單；座標待補，可同步加入 <a href="map.html">map.html</a> 地圖標記。</p>
+  <h3 style="color:var(--blue);font-size:15px;margin:14px 0 6px">🚉 交通</h3>
+  <ul>
+    <li><b>機場出市區：</b>搭 59 號巴士到機場範圍外，再轉電車或地鐵，車程約 45 分–1 小時。</li>
+    <li><b>市內票券：</b>機場巴士站旁黃色售票機購票；停留 3–4 天建議買 72 小時車票，上車後插卡啟用生效。</li>
+  </ul>
+  <h3 style="color:var(--blue);font-size:15px;margin:14px 0 6px">🏰 景點（含影片時間戳）</h3>
+  <ul>
+    <li><b>天文鐘</b> — 600 多年歷史，整點 1.5 分鐘機械報時表演（耶穌門徒轉出與雞鳴）。</li>
+    <li><b>火藥塔</b> — 舊城區 13 座城門唯一留存，昔日皇室入口。</li>
+    <li><b>老城廣場</b>（胡斯雕像 & 泰恩教堂） — 14 世紀哥德式雙塔教堂。</li>
+    <li><b>查理大橋</b> — 白天夜晚各去一次；早晨約 7 點人潮最少，橋上 30 座雕像。</li>
+    <li><b>聖約翰尼波穆克雕像</b> — 撫摸底座浮雕求好運，已被摸到發亮。</li>
+    <li><b>聖維特大教堂南塔觀景台</b> — 單購票登南塔，360° 俯瞰查理大橋與舊城。</li>
+    <li><b>斯特拉霍夫修道院觀景台</b> — 山丘免費市景，旁有修道院自釀啤酒餐廳。</li>
+    <li><b>萊特納公園觀景台</b> — 電車可達，拍橋與舊電車；後方有巨型節拍器。</li>
+    <li><b>復古木船遊老運河</b> — 19 世紀「威尼斯號」，含飲品點心與耳機導覽。</li>
+    <li><b>藍儂牆</b> — 小城區塗鴉象徵地標。</li>
+  </ul>
+  <h3 style="color:var(--blue);font-size:15px;margin:14px 0 6px">🍽️ 美食（座標待補）</h3>
+  <ul>
+    <li><b>Crème de la Crème 義式冰淇淋</b> — 天文鐘步行 5 分，推薦開心果、黑巧克力。</li>
+    <li><b>煙囪卷 Trdelník</b> — 傳統街頭甜點，可加榛果醬或冰淇淋。</li>
+    <li><b>Kuchyň（城堡區）</b> — 16 世紀貴族廚房風，烤鴨胸配紫椰菜馬鈴薯餅。</li>
+    <li><b>Pork's 巨型烤豬手</b> — 新城區分店較易入座，約 800 克朗兩人分食。</li>
+    <li><b>Naše Maso（舊城區肉舖）</b> — 招牌布拉格火腿／煙燻牛胸肉三明治，設自助點餐機。</li>
+  </ul>
+</section>
+'''
+
 guide = f'''<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -168,11 +201,13 @@ guide = f'''<!DOCTYPE html>
 </header>
 <nav class="toc">{toc}</nav>
 {spots_html}
+{POCKET}
 <section class="foot">
   <h2>📌 實用資訊</h2>
   <ul>
     <li><b>自駕租車：</b>4人含跨國（Cross-Border 允許奧/德），全包約 NT$7,000/人（租車＋全險＋油資＋過路費）。</li>
-    <li><b>奧地利 Vignette 貼紙：</b>10日 €11.4（網購或加油站），貼擋風玻璃；德國免費。</li>
+    <li><b>奧地利 Vignette：</b>10日 €10.20（ASFINAG 官網/加油站，貼擋風玻璃）；德國小客車免費。</li>
+    <li><b>捷克 e-vignette：</b>10日 310 Kč ≈ €12（車牌連結，行前在 edalnice.cz 線上購買；本程 D1/D5/D6/D7 多在捷克高速，必備）。</li>
     <li><b>停車：</b>哈修塔特付費場(P1/P2)+接駁；國王湖大停車場；奧伊根多夫/安德區住宿附停車。</li>
     <li><b>住宿評價：</b>四間皆優（布拉格9.7 / CK 8.8 / 薩爾斯堡9.5 / 皮爾森9.1），無明顯負評。</li>
     <li><b>必帶：</b>台灣駕照正本＋國際駕照(IDP)＋護照＋本人信用卡。</li>
