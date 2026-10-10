@@ -1,12 +1,81 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=map.html">
-  <title>奧捷旅遊 · 重新導向中…</title>
-  <script>window.location.replace("map.html");</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奧捷旅遊 · 首頁</title>
+<style>
+  :root{
+    --primary:#EA580C; --primary-ink:#FFFFFF;
+    --secondary:#0891B2; --secondary-ink:#FFFFFF;
+    --accent:#D97706;
+    --bg:#FFF7ED; --surface:#FFFFFF; --ink:#0F172A; --muted:#64748B;
+    --line:#FCEAE1; --line-strong:#F6D9C4;
+    --radius:24px; --radius-sm:16px;
+    --shadow:0 8px 32px rgba(15,23,42,.10);
+    --shadow-lg:0 16px 48px rgba(15,23,42,.18);
+    --font:"Atkinson Hyperlegible","Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--font);color:var(--ink);
+    background:#e8eef2;-webkit-font-smoothing:antialiased;line-height:1.6}
+  
+  .container{max-width:1000px;margin:0 auto;padding:40px 20px}
+  
+  header{text-align:center;margin-bottom:48px}
+  header h1{font-size:36px;font-weight:800;color:var(--primary);margin:0 0 12px;letter-spacing:1px}
+  header p{font-size:16px;color:var(--muted);margin:0}
+  
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+  
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:32px;
+    text-align:center;box-shadow:var(--shadow);transition:transform .2s ease,box-shadow .2s ease;
+    cursor:pointer;text-decoration:none;color:inherit;display:block}
+  .card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg)}
+  .card svg{width:64px;height:64px;margin-bottom:16px;opacity:.8}
+  .card h2{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 8px}
+  .card p{font-size:14.5px;color:var(--muted);margin:0;line-height:1.6}
+  .card .badge{display:inline-block;margin-top:12px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;
+    background:var(--primary);color:var(--primary-ink)}
+  
+  footer{text-align:center;margin-top:48px;padding:20px;color:var(--muted);font-size:12px}
+  
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-  <p>正在前往互動地圖…若未自動跳轉，請 <a href="map.html">點此開啟 map.html</a>。</p>
+<div class="container">
+  <header>
+    <h1>🇨🇿🇦🇹 奧捷＋德國國王湖 · 7天自駕旅遊</h1>
+    <p>2026年10月 · 4人同行 · 行程規劃與記帳系統</p>
+  </header>
+  
+  <div class="grid">
+    <a href="map.html" class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+      <h2>🗺️ 互動地圖</h2>
+      <p>查看完整的自駕路線、景點標記和行程規劃</p>
+      <span class="badge">行程規劃</span>
+    </a>
+    
+    <a href="guide.html" class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+      <h2>📖 旅遊攻略</h2>
+      <p>按天數分類的景點介紹、餐廳推薦和實用資訊</p>
+      <span class="badge">攻略指南</span>
+    </a>
+    
+    <a href="splitbill.html" class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M12 15h.01"/><path d="M16 15h.01"/><path d="M8 15h.01"/></svg>
+      <h2>🧾 費用記帳</h2>
+      <p>記錄旅行開支、自動計算分攤，查看誰該給誰多少錢</p>
+      <span class="badge">記帳分攤</span>
+    </a>
+  </div>
+  
+  <footer>
+    <p>© 2026 奧捷旅遊 · 計畫頁面 · 若有任何問題請隨時回報</p>
+  </footer>
+</div>
 </body>
 </html>
