@@ -701,6 +701,13 @@ function render(){
     const f = PLACES.find(p=>p.name===name);
     return f ? [f.lat,f.lng] : null;
   }).filter(Boolean);
+  
+  // 調試輸出
+  console.log('ROUTE points:', pts.length, 'routeRoadOn:', routeRoadOn);
+  if(pts.length < 2) {
+    console.warn('路線點數不足（需要至少2個點）', {ROUTE, PLACES});
+  }
+  
   drawRouteInRender(pts);
 }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1149,3 +1156,39 @@ setTimeout(()=>{ if(typeof map.invalidateSize==='function') map.invalidateSize()
 </script>
 </body>
 </html>
+<script>
+// 在頁面底部添加調試按鈕
+const debugBtn = document.createElement('button');
+debugBtn.textContent = '🔍 調試資訊';
+debugBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:#333;color:#fff;border:none;border-radius:8px;padding:10px 15px;font-size:12px;cursor:pointer;';
+debugBtn.onclick = () => {
+  const pts = ROUTE.map(name => {
+    const f = PLACES.find(p => p.name === name);
+    return f ? [f.lat, f.lng] : null;
+  }).filter(Boolean);
+  
+  console.log('=== 調試資訊 ===');
+  console.log('PLACES 數量:', PLACES.length);
+  console.log('ROUTE 數量:', ROUTE.length);
+  console.log('匹配的路線點數:', pts.length);
+  
+  const unmatched = ROUTE.filter(name => !PLACES.find(p => p.name === name));
+  if (unmatched.length > 0) {
+    console.warn('未匹配的地點（ROUTE 中有但 PLACES 中沒有）:', unmatched);
+  }
+  
+  alert('調試資訊已輸出到瀏覽器控制台（F12）');
+};
+document.body.appendChild(debugBtn);
+</script>
+// 在調試按鈕後添加清除資料按鈕
+const clearBtn = document.createElement('button');
+clearBtn.textContent = '🗑️ 恢復預設';
+clearBtn.style.cssText = 'position:fixed;bottom:20px;right:160px;z-index:9999;background:#DC2626;color:#fff;border:none;border-radius:8px;padding:10px 15px;font-size:12px;cursor:pointer;';
+clearBtn.onclick = () => {
+  if(confirm('確定要清除所有編輯並恢復預設資料嗎？')) {
+    localStorage.removeItem('map_places');
+    location.reload();
+  }
+};
+document.body.appendChild(clearBtn);
