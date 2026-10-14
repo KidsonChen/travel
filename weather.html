@@ -195,8 +195,18 @@ const weatherIcons = {
 // 當前時間天氣
 async function fetchCurrentWeather() {
   const currentUrl = 'https://api.open-meteo.com/v1/forecast';
-  const selectedKey = document.getElementById('citySelect').value;
+  const citySelect = document.getElementById('citySelect');
+  if (!citySelect) {
+    console.warn('citySelect not found');
+    return;
+  }
+  
+  const selectedKey = citySelect.value;
   const city = cities[selectedKey];
+  if (!city) {
+    console.warn(`City ${selectedKey} not found`);
+    return;
+  }
   
   try {
     const response = await fetch(`${currentUrl}?latitude=${city.lat}&longitude=${city.lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`);
@@ -205,18 +215,22 @@ async function fetchCurrentWeather() {
     const current = data.current;
     const weatherCode = current.weather_code;
     
-    // 更新 UI
-    const cityName = document.getElementById('selected-city-name');
-    cityName.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M6 12h12"/></svg>${city.name}`;
-    document.getElementById('selected-temp').textContent = Math.round(current.temperature_2m);
-    document.getElementById('selected-desc').textContent = getWeatherDescription(weatherCode);
-    document.getElementById('selected-icon').textContent = weatherIcons[weatherCode] || '❓';
-    document.getElementById('selected-humidity').textContent = current.relative_humidity_2m;
-    document.getElementById('selected-wind').textContent = current.wind_speed_10m;
-    document.getElementById('selected-pop').textContent = '0'; // Open-Meteo current API 不提供降水機率
+    // 更新 UI - 添加元素存在性檢查
+    const cityNameEl = document.getElementById('selected-city-name');
+    const tempEl = document.getElementById('selected-temp');
+    const descEl = document.getElementById('selected-desc');
+    const iconEl = document.getElementById('selected-icon');
+    const humidityEl = document.getElementById('selected-humidity');
+    const windEl = document.getElementById('selected-wind');
+    const popEl = document.getElementById('selected-pop');
     
-    // 更新預報標題
-    document.getElementById('forecast-title').textContent = `${city.name} 未來7天預報`;
+    if (cityNameEl) cityNameEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M6 12h12"/></svg>${city.name}`;
+    if (tempEl) tempEl.textContent = Math.round(current.temperature_2m);
+    if (descEl) descEl.textContent = getWeatherDescription(weatherCode);
+    if (iconEl) iconEl.textContent = weatherIcons[weatherCode] || '❓';
+    if (humidityEl) humidityEl.textContent = current.relative_humidity_2m;
+    if (windEl) windEl.textContent = current.wind_speed_10m;
+    if (popEl) popEl.textContent = '0'; // Open-Meteo current API 不提供降水機率
     
     // 更新7天預報
     fetchForecast(selectedKey, city);
