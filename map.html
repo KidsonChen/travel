@@ -239,6 +239,12 @@
 <body>
 <div id="app">
   <header>
+    <div style="margin-bottom:10px">
+      <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;color:#fff;background:rgba(255,255,255,.15);padding:6px 12px;border-radius:999px;text-decoration:none;font-size:13px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        返回首頁
+      </a>
+    </div>
     <h1>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.5 2 2-5.5L20 3l1 1L21 20 9 20z"/><path d="M21 3L9 15"/><path d="M15 5l4 4"/></svg>
       🇨🇿🇦🇹 奧捷＋德國國王湖 · 自駕互動地圖
@@ -947,9 +953,10 @@ function movePlace(i, d){
   });
   const nm = PLACES[i].name;
   PLACES[i].day = dv;
+  localStorage.setItem('map_places', JSON.stringify(PLACES));
   currentTab = dv;
   buildEditor(); render();
-  setMsg("📦 已將「"+nm+"」移到 "+dayLabel(dv)+"；按「套用變更」更新地圖", false);
+  setMsg("📦 已將「"+nm+"」移到 "+dayLabel(dv)+"; 自動儲存", false);
 }
 function escAttr(s){ return String(s).replace(/"/g,'').replace(/</g,'&lt;'); }
 
@@ -1038,8 +1045,12 @@ function applyEdits(){
     const data = collectPlaces();
     if(!data.length) throw new Error("沒有有效的地點（名稱/緯度/經度都要填）");
     PLACES.length = 0; data.forEach(d=>PLACES.push(d));
+    
+    // 儲存到 localStorage
+    localStorage.setItem('map_places', JSON.stringify(PLACES));
+    
     render();
-    setMsg("✅ 已套用，"+PLACES.length+" 個地點", false);
+    setMsg("✅ 已套用並儲存，"+PLACES.length+" 個地點", false);
     // 套用後自動捲回上半部地圖，立刻看到更新結果
     const mv=document.getElementById('mapView');
     if(mv && mv.scrollIntoView) mv.scrollIntoView({behavior:'smooth',block:'start'});
@@ -1048,13 +1059,16 @@ function applyEdits(){
 function addRow(day){
   const d = (day===undefined || day==='') ? maxDay() : day;
   PLACES.push({name:"新地點", lat:50.0, lng:14.0, type:"spot", day:d, note:""});
+  localStorage.setItem('map_places', JSON.stringify(PLACES));
   buildEditor();
-  setMsg("已新增一筆（"+((typeof d==='number')?('Day '+d):'未排定')+"），請填寫後按「套用變更」", false);
+  setMsg("已新增一筆（"+((typeof d==='number')?('Day '+d):'未排定')+"），自動儲存", false);
 }
 function maxDay(){ const ds=PLACES.map(p=>p.day).filter(x=>typeof x==='number'); return ds.length?Math.max(...ds):7; }
 function delRow(i){
-  PLACES.splice(i,1); buildEditor();
-  setMsg("已刪除一筆，按「套用變更」生效", false);
+  PLACES.splice(i,1); 
+  localStorage.setItem('map_places', JSON.stringify(PLACES));
+  buildEditor();
+  setMsg("已刪除一筆，自動儲存", false);
 }
 function resetEdits(){ location.reload(); }
 function setMsg(t,err){ const m=document.getElementById('msg'); m.textContent=t; m.style.color=err?'#c0392b':'#27ae60'; }
@@ -1081,8 +1095,9 @@ async function addByAddress(){
     const j = await r.json();
     if(!j.length){ setMsg("找不到："+q, true); return; }
     PLACES.push({name:q, lat:+j[0].lat, lng:+j[0].lon, type:"spot", day:maxDay(), note:"使用者新增"});
+    localStorage.setItem('map_places', JSON.stringify(PLACES));
     currentTab=maxDay(); buildEditor(); render();
-    setMsg("✅ 已加入："+q+" 到 "+dayLabel(maxDay())+"（按「套用變更」生效）", false);
+    setMsg("✅ 已加入："+q+" 到 "+dayLabel(maxDay())+"（自動儲存）", false);
   }catch(e){ setMsg("❌ 查詢失敗（需網路）："+e.message, true); }
 }
 
@@ -1108,6 +1123,20 @@ function downloadMap(){
 
 // init
 buildEditor();
+// 從 localStorage 載入儲存的資料（如果有的話）
+const savedPlaces = localStorage.getItem('map_places');
+if(savedPlaces){
+  try{
+    const placesData = JSON.parse(savedPlaces);
+    if(Array.isArray(placesData) && placesData.length > 0){
+      PLACES.length = 0;
+      placesData.forEach(p => PLACES.push(p));
+      setMsg("✅ 已載入先前儲存的行程資料 (" + PLACES.length + " 筆)", false);
+    }
+  }catch(e){
+    console.error("載入儲存資料失敗：", e);
+  }
+}
 render();
 // 依目前路線模式同步按鈕文字
 const __rb=document.getElementById('routeBtn'); if(__rb) __rb.textContent=routeRoadOn?'🛣️ 取消真實道路':'🛣️ 啟用真實道路路線';

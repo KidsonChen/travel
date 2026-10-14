@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奧捷旅遊 · 天氣預報</title>
+<style>
+  :root{
+    --primary:#EA580C; --primary-ink:#FFFFFF;
+    --secondary:#0891B2; --secondary-ink:#FFFFFF;
+    --accent:#D97706;
+    --bg:#FFF7ED; --surface:#FFFFFF; --ink:#0F172A; --muted:#64748B;
+    --line:#FCEAE1; --line-strong:#F6D9C4;
+    --ok:#047857; --ok-bg:#ECFDF5; --ok-line:#6EE7B7;
+    --warn:#B45309; --warn-bg:#FFFBEB; --warn-line:#FCD34D;
+    --radius:18px; --radius-sm:12px;
+    --shadow:0 6px 24px rgba(15,23,42,.08);
+    --shadow-lg:0 12px 44px rgba(15,23,42,.22);
+    --font:"Atkinson Hyperlegible","Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--font);color:var(--ink);
+    background:#e8eef2;-webkit-font-smoothing:antialiased;line-height:1.6}
+  
+  .container{max-width:1100px;margin:0 auto;padding:32px 20px}
+  
+  header{text-align:center;margin-bottom:40px}
+  header h1{font-size:32px;font-weight:800;color:var(--primary);margin:0 0 10px;letter-spacing:1px}
+  header p{font-size:15px;color:var(--muted);margin:0}
+  .last-updated{font-size:12.5px;color:var(--muted);margin-top:6px}
+  
+  .back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;
+    padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:24px;
+    text-decoration:none;transition:all .15s ease}
+  .back-btn:hover{border-color:var(--primary);color:var(--primary)}
+  .back-btn svg{width:16px;height:16px}
+  
+  .cities-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;margin-bottom:32px}
+  
+  .city-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:24px;box-shadow:var(--shadow);transition:transform .2s ease,box-shadow .2s ease}
+  .city-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+  .city-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+  .city-name{font-size:20px;font-weight:700;color:var(--primary);margin:0;display:flex;align-items:center;gap:8px}
+  .city-name svg{width:24px;height:24px}
+  .temp-display{font-size:42px;font-weight:800;color:var(--ink);line-height:1}
+  .temp-detail{font-size:13.5px;color:var(--muted);margin-top:4px}
+  .weather-icon{font-size:48px;margin:12px 0}
+  
+  .weather-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+  .weather-item{background:var(--bg);border-radius:var(--radius-sm);padding:10px;text-align:center}
+  .weather-item .label{font-size:11.5px;color:var(--muted);margin-bottom:4px}
+  .weather-item .value{font-size:15.5px;font-weight:700;color:var(--ink)}
+  .weather-item .unit{font-size:11.5px;color:var(--muted);margin-left:2px}
+  
+  .section-title{font-size:15px;font-weight:700;color:var(--primary);margin:24px 0 16px;border-bottom:2px solid var(--line);padding-bottom:6px}
+  
+  .forecast-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .day-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px;text-align:center;box-shadow:var(--shadow)}
+  .day-card:hover{border-color:var(--primary)}
+  .day-name{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:8px}
+  .day-icon{font-size:32px;margin:6px 0}
+  .day-temp{font-size:16px;font-weight:700;color:var(--ink);margin:4px 0}
+  .day-temp .high{color:var(--primary)}
+  .day-temp .low{color:var(--muted)}
+  .day-detail{font-size:11.5px;color:var(--muted);margin-top:6px}
+  
+  .note{background:var(--warn-bg);border-left:4px solid var(--warn);padding:12px 15px;
+    border-radius:var(--radius-sm);margin:20px 0;font-size:13px;color:#7C2D12;line-height:1.6}
+  .note strong{color:var(--danger)}
+  
+  @media(max-width:640px){.cities-grid{grid-template-columns:1fr}
+    .city-card{padding:18px}
+    .temp-display{font-size:36px}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="index.html" class="back-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    返回首頁
+  </a>
+  
+  <header>
+    <h1> 🌤️ 奧捷天氣預報</h1>
+    <p>實時溫度、濕度、降雨機率｜7天預報</p>
+    <div class="last-updated">更新時間：<span id="lastUpdated">載入中...</span>｜資料來源：Open-Meteo</div>
+  </header>
+  
+  <div class="note">
+    <strong>💡 小提醒：</strong>
+    10月捷克與奧地利天氣多變，建議攜帶：<br>
+    • 防風防水外套（早晚溫差大）<br>
+    • 舒適防滑鞋子（部分景點需步行）<br>
+    • 折疊傘（午後雷陣雨機率高）
+  </div>
+  
+  <div class="section-title">📍 城市天氣</div>
+  <div class="cities-grid">
+    <div class="city-card" id="prague-card">
+      <div class="city-header">
+        <h2 class="city-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M6 12h12"/></svg>布拉格 (Prague)</h2>
+      </div>
+      <div class="weather-icon" id="prague-icon">☀️</div>
+      <div class="temp-display"><span id="prague-temp">--</span>°C</div>
+      <div class="temp-detail" id="prague-desc">--</div>
+      
+      <div class="weather-grid">
+        <div class="weather-item">
+          <div class="label">濕度</div>
+          <div class="value"><span id="prague-humidity">--</span><span class="unit">%</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="label">降雨機率</div>
+          <div class="value"><span id="prague-pop">--</span><span class="unit">%</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="label">風速</div>
+          <div class="value"><span id="prague-wind">--</span><span class="unit">km/h</span></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="city-card" id="ck-card">
+      <div class="city-header">
+        <h2 class="city-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M6 12h12"/></svg>CK小鎮 (Český Krumlov)</h2>
+      </div>
+      <div class="weather-icon" id="ck-icon">☁️</div>
+      <div class="temp-display"><span id="ck-temp">--</span>°C</div>
+      <div class="temp-detail" id="ck-desc">--</div>
+      
+      <div class="weather-grid">
+        <div class="weather-item">
+          <div class="label">濕度</div>
+          <div class="value"><span id="ck-humidity">--</span><span class="unit">%</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="label">降雨機率</div>
+          <div class="value"><span id="ck-pop">--</span><span class="unit">%</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="label">風速</div>
+          <div class="value"><span id="ck-wind">--</span><span class="unit">km/h</span></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="city-card" id="salzburg-card">
+      <div class="city-header">
+        <h2 class="city-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M6 12h12"/></svg>薩爾斯堡 (Salzburg)</h2>
+      </div>
+      <div class="weather-icon" id="salzburg-icon">🌧️</div>
+      <div class="temp-display"><span id="salzburg-temp">--</span>°C</div>
+      <div class="temp-detail" id="salzburg-desc">--</div>
+      
+      <div class="weather-grid">
+        <div class="weather-item">
+          <div class="label">濕度</div>
+          <div class="value"><span id="salzburg-humidity">--</span><span class="unit">%</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="label">降雨機率</div>
+          <div class="value"><span id="salzburg-pop">--</span><span class="unit">%</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="label">風速</div>
+          <div class="value"><span id="salzburg-wind">--</span><span class="unit">km/h</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section-title">📅 7天預報</div>
+  <div class="forecast-grid" id="forecast-container">
+    <div class="day-card">
+      <div class="day-name">布拉格</div>
+      <div class="day-icon" id="f-prague-0">☀️</div>
+      <div class="day-temp"><span class="high" id="f-prague-high-0">--</span>°C / <span class="low" id="f-prague-low-0">--</span>°C</div>
+      <div class="day-detail" id="f-prague-desc-0">--</div>
+    </div>
+    <div class="day-card">
+      <div class="day-name">CK小鎮</div>
+      <div class="day-icon" id="f-ck-0">☁️</div>
+      <div class="day-temp"><span class="high" id="f-ck-high-0">--</span>°C / <span class="low" id="f-ck-low-0">--</span>°C</div>
+      <div class="day-detail" id="f-ck-desc-0">--</div>
+    </div>
+    <div class="day-card">
+      <div class="day-name">薩爾斯堡</div>
+      <div class="day-icon" id="f-salzburg-0">🌧️</div>
+      <div class="day-temp"><span class="high" id="f-salzburg-high-0">--</span>°C / <span class="low" id="f-salzburg-low-0">--</span>°C</div>
+      <div class="day-detail" id="f-salzburg-desc-0">--</div>
+    </div>
+  </div>
+  
+  <footer style="text-align:center;margin-top:48px;padding:20px;color:var(--muted);font-size:12px">
+    <p>© 2026 奧捷旅遊 · 天氣預報頁面</p>
+  </footer>
+</div>
+
+<script>
+// 捷克與奧地利主要城市座標
+const cities = {
+  prague: { name: '布拉格', lat: 50.0755, lng: 14.4378, tz: 'Europe/Prague' },
+  ck: { name: 'CK小鎮', lat: 48.8224, lng: 14.3267, tz: 'Europe/Prague' },
+  salzburg: { name: '薩爾斯堡', lat: 47.8095, lng: 13.0550, tz: 'Europe/Vienna' }
+};
+
+// 天氣图标映射
+const weatherIcons = {
+  0: '☀️',  // Clear sky
+  1: '🌤️',  // Mainly clear
+  2: '⛅',  // Partly cloudy
+  3: '☁️',  // Overcast
+  45: '🌫️', // Fog
+  48: '🌫️', // Depositing rime fog
+  51: '🌦️', // Light drizzle
+  53: '🌦️', // Moderate drizzle
+  55: '🌧️', // Dense drizzle
+  56: '🌧️', // Light freezing drizzle
+  57: '🌧️', // Dense freezing drizzle
+  61: '🌧️', // Slight rain
+  63: '🌧️', // Moderate rain
+  65: '🌧️', // Heavy rain
+  66: '🌧️', // Light freezing rain
+  67: '🌧️', // Heavy freezing rain
+  71: '❄️', // Slight snow
+  73: '❄️', // Moderate snow
+  75: '❄️', // Heavy snow
+  77: '❄️', // Snow grains
+  80: '🌧️', // Slight rain showers
+  81: '🌧️', // Moderate rain showers
+  82: '🌧️', // Violent rain showers
+  85: '❄️', // Slight snow showers
+  86: '❄️', // Heavy snow showers
+  95: '⛈️', // Thunderstorm
+  96: '⛈️', // Thunderstorm with hail
+  99: '⛈️'  // Thunderstorm with heavy hail
+};
+
+// 當前時間天氣
+async function fetchCurrentWeather() {
+  const currentUrl = 'https://api.open-meteo.com/v1/forecast';
+  
+  for (const [key, city] of Object.entries(cities)) {
+    try {
+      const response = await fetch(`${currentUrl}?latitude=${city.lat}&longitude=${city.lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`);
+      const data = await response.json();
+      
+      // 更新 UI
+      const tempSpan = document.getElementById(`${key}-temp`);
+      const descSpan = document.getElementById(`${key}-desc`);
+      const iconSpan = document.getElementById(`${key}-icon`);
+      const humiditySpan = document.getElementById(`${key}-humidity`);
+      const popSpan = document.getElementById(`${key}-pop`);
+      const windSpan = document.getElementById(`${key}-wind`);
+      
+      const current = data.current;
+      const weatherCode = current.weather_code;
+      
+      tempSpan.textContent = Math.round(current.temperature_2m);
+      descSpan.textContent = getWeatherDescription(weatherCode);
+      iconSpan.textContent = weatherIcons[weatherCode] || '❓';
+      humiditySpan.textContent = current.relative_humidity_2m;
+      windSpan.textContent = current.wind_speed_10m;
+      popSpan.textContent = '0'; // Open-Meteo current API 不提供降水機率
+      
+      // 5-10分鐘更新一次
+      setTimeout(fetchCurrentWeather, 5 * 60 * 1000);
+      
+    } catch (error) {
+      console.error(`.fetchWeather failed for ${key}:`, error);
+    }
+  }
+}
+
+// 7天預報
+async function fetchForecast() {
+  const forecastUrl = 'https://api.open-meteo.com/v1/forecast';
+  const days = 7;
+  
+  for (const [key, city] of Object.entries(cities)) {
+    try {
+      const response = await fetch(`${forecastUrl}?latitude=${city.lat}&longitude=${city.lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_mean&timezone=auto&forecast_days=${days}`);
+      const data = await response.json();
+      
+      const daily = data.daily;
+      const now = new Date();
+      const todayIndex = new Date(now.toLocaleString('en-US', { timeZone: city.tz })).getHours() >= 12 ? 1 : 0;
+      
+      // 更新未來7天預報
+      for (let i = 0; i < days; i++) {
+        const dayIndex = i + todayIndex;
+        if (dayIndex < daily.time.length) {
+          const date = new Date(daily.time[dayIndex] + 'T00:00:00');
+          const dayName = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
+          
+          const highSpan = document.getElementById(`f-${key}-high-${i}`);
+          const lowSpan = document.getElementById(`f-${key}-low-${i}`);
+          const descSpan = document.getElementById(`f-${key}-desc-${i}`);
+          const iconSpan = document.getElementById(`f-${key}-icon-${i}`);
+          
+          if (highSpan) highSpan.textContent = Math.round(daily.temperature_2m_max[dayIndex]);
+          if (lowSpan) lowSpan.textContent = Math.round(daily.temperature_2m_min[dayIndex]);
+          if (descSpan) descSpan.textContent = getWeatherDescription(daily.weather_code[dayIndex]);
+          if (iconSpan) iconSpan.textContent = weatherIcons[daily.weather_code[dayIndex]] || '❓';
+        }
+      }
+      
+    } catch (error) {
+      console.error(`.fetchForecast failed for ${key}:`, error);
+    }
+  }
+}
+
+function getWeatherDescription(code) {
+  const descriptions = {
+    0: '晴朗', 1: '晴時多雲', 2: '多雲', 3: '陰天',
+    45: '有霧', 48: '結霜霧', 51: '小毛雨', 53: '中毛雨', 55: '大毛雨',
+    56: '小凍雨', 57: '大凍雨', 61: '小雨', 63: '中雨', 65: '大雨',
+    66: '小凍雨', 67: '大凍雨', 71: '小雪', 73: '中雪', 75: '大雪',
+    77: '雪粒', 80: '小陣雨', 81: '中陣雨', 82: '強陣雨',
+    85: '小陣雪', 86: '強陣雪', 95: '雷雨', 96: '雷雨冰雹', 99: '強雷雨冰雹'
+  };
+  return descriptions[code] || '未知天氣';
+}
+
+// 初始化
+document.getElementById('lastUpdated').textContent = new Date().toLocaleString('zh-TW');
+fetchCurrentWeather();
+fetchForecast();
+</script>
+</body>
+</html>
