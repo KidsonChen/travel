@@ -235,6 +235,14 @@
     .lb-body{padding:20px 20px 26px}
   }
   @media (prefers-reduced-motion:reduce){.lb-overlay,.lb-dialog{transition:none}}
+
+  /* 返回首頁按鈕 */
+  .back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;
+    padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;
+    transition:all .15s ease}
+  .back-btn:hover{border-color:var(--primary);color:var(--primary)}
+  .back-btn svg{width:16px;height:16px}
 </style>
 </head>
 <body>
