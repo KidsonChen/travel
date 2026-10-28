@@ -5,5 +5,4 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "D1"
 database_name = "split-billing"
-# Your actual D1 database ID
-database_id = "ed0de160d" 
+database_id = "eab2f027-8212-4374-849a-6afed0de160d" 
