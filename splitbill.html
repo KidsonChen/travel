@@ -396,38 +396,19 @@
       payer,
       note,
       shared: sharedPersons,
-      date: new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'})
+      date: new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'}),
+      pendingSync: true
     };
     
     expenses.push(expense);
     
-    // 嘗試同步到 D1
+    let syncError = null;
     if (isOnline) {
       try {
         console.log('🔄 嘗試同步到 D1...', expense);
-        const response = await fetch(`${API_BASE_URL}/api/expenses`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(expense)
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          console.log('✅ 成功同步到 D1:', result);
-          // 更新 ID 為 D1 返回的 ID
-          if (result.id) {
-            const idx = expenses.findIndex(e => e.id === expense.id);
-            if (idx !== -1) {
-              expenses[idx].id = result.id;
-            }
-          }
-          hasMigrated = true;
-          localStorage.setItem('splitbill_migrated', 'true');
-        } else {
-          const errorData = await response.json();
-          console.error('❌ D1 API 錯誤:', errorData);
-        }
+        await syncExpenseToD1(expense);
       } catch (error) {
+        syncError = error;
         console.error('❌ 無法同步到 D1:', error);
       }
     } else {
@@ -438,6 +419,38 @@
     saveToStorage();
     resetForm();
     updateUI();
+
+    if (syncError) {
+      alert(`支出已保存在此裝置，但同步到 D1 失敗。\n錯誤：${syncError.message}\n網路恢復後會自動重試。`);
+    } else if (!isOnline) {
+      alert('支出已保存在此裝置；目前離線，網路恢復後會自動同步到 D1。');
+    }
+  }
+
+  async function syncExpenseToD1(expense) {
+    const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(expense)
+    });
+    const responseBody = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const message = responseBody.details || responseBody.error || response.statusText;
+      throw new Error(`HTTP ${response.status}: ${message}`);
+    }
+
+    const idx = expenses.findIndex(item => item === expense);
+    if (idx !== -1 && responseBody.id) {
+      expenses[idx].id = responseBody.id;
+    }
+    if (idx !== -1) {
+      expenses[idx].pendingSync = false;
+    }
+    hasMigrated = true;
+    localStorage.setItem('splitbill_migrated', 'true');
+    saveToStorage();
+    console.log('✅ 成功同步到 D1:', responseBody);
   }
 
   // 重置表單
@@ -678,17 +691,35 @@
         if (response.ok) {
           const result = await response.json();
           hasMigrated = true;
+          expenses.forEach(expense => {
+            expense.pendingSync = false;
+          });
+          saveToStorage();
           localStorage.setItem('splitbill_migrated', 'true');
           console.log('✅ 成功遷移', result.migrated, '筆資料到 D1');
         } else {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           console.error('❌ 遷移失敗:', errorData);
+          alert(`同步到 D1 失敗，資料仍保留在此裝置。\n錯誤：${errorData.details || errorData.error || response.statusText}`);
         }
       } catch (error) {
         console.error('❌ 同步失敗:', error);
+        alert(`同步到 D1 失敗，資料仍保留在此裝置。\n錯誤：${error.message}`);
       }
     } else if (hasMigrated) {
-      console.log('ℹ️ 已遷移過，跳過');
+      const pendingExpenses = expenses.filter(expense => expense.pendingSync);
+      const errors = [];
+      for (const expense of pendingExpenses) {
+        try {
+          await syncExpenseToD1(expense);
+        } catch (error) {
+          errors.push(error.message);
+          console.error('❌ 重試同步支出失敗:', error);
+        }
+      }
+      if (errors.length > 0) {
+        alert(`有 ${errors.length} 筆支出尚未同步到 D1，資料仍保留在此裝置。\n錯誤：${errors[0]}`);
+      }
     } else {
       console.log('ℹ️ 沒有資料需要遷移');
     }
@@ -758,9 +789,12 @@
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/expenses`);
-      console.log('HTTP Status:', response.status);
       const data = await response.json();
+      console.log('HTTP Status:', response.status);
       console.log('Response:', data);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${data.details || data.error || response.statusText}`);
+      }
       alert(`✅ D1 連線成功！\n狀態: ${response.status}\n資料: ${JSON.stringify(data)}`);
     } catch (error) {
       console.error('❌ D1 連線失敗:', error);
