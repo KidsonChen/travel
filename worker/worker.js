@@ -43,7 +43,7 @@ async function getExpenses(request, env) {
     return jsonResponse(results);
   } catch (error) {
     console.error("Error fetching expenses:", error);
-    return jsonResponse({ error: "Failed to fetch expenses" }, 500);
+    return jsonResponse({ error: "Failed to fetch expenses", details: error.message }, 500);
   }
 }
 
@@ -60,7 +60,7 @@ async function addExpense(request, env) {
       amount: body.amount,
       payer: body.payer,
       note: body.note || "",
-      shared: JSON.stringify(body.shared),
+      shared: typeof body.shared === 'string' ? body.shared : JSON.stringify(body.shared),
       date: body.date || new Date().toLocaleDateString("zh-TW")
     };
 
@@ -71,7 +71,7 @@ async function addExpense(request, env) {
     return jsonResponse({ id: result.meta.last_row_id, ...expense }, 201);
   } catch (error) {
     console.error("Error adding expense:", error);
-    return jsonResponse({ error: "Failed to add expense" }, 500);
+    return jsonResponse({ error: "Failed to add expense", details: error.message }, 500);
   }
 }
 
