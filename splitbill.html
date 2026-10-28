@@ -158,6 +158,7 @@
     <p>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
       共計 4 人 · 記錄所有開支 · 自動計算分攤
+      <span id="syncStatus" style="margin-left:12px;display:inline-flex;align-items:center;gap:4px"></span>
     </p>
   </header>
 
@@ -296,11 +297,16 @@
   // 人員列表
   const persons = ["佑任", "煌其", "芯慬", "嘉蕙"];
   let expenses = [];
+  
+  // D1 API 配置 - 請替換為你的 Worker URL
+  const API_BASE_URL = 'split-billing-api.kidson7911.workers.dev';
+  let isOnline = navigator.onLine;
+  let hasMigrated = localStorage.getItem('splitbill_migrated') === 'true';
 
   // 初始化
-  document.addEventListener('DOMContentLoaded', function() {
-    // 载入本地儲存
-    loadFromStorage();
+  document.addEventListener('DOMContentLoaded', async function() {
+    // 嘗試從 D1 載入，失敗則從 localStorage 載入
+    await loadExpenses();
     
     // Tab 切換
     document.querySelectorAll('.tab').forEach(tab => {
@@ -318,10 +324,51 @@
 
     // 更新畫面
     updateUI();
+    updateSyncStatus();
+    
+    // 監聽網路狀態
+    window.addEventListener('online', () => {
+      isOnline = true;
+      updateSyncStatus();
+      syncToD1();
+    });
+    window.addEventListener('offline', () => {
+      isOnline = false;
+      updateSyncStatus();
+      showOfflineNotification();
+    });
   });
 
-  // 新增開支
-  function addExpense() {
+  // 載入支出資料（優先從 D1，失敗則從 localStorage）
+  async function loadExpenses() {
+    if (hasMigrated && isOnline) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/expenses`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            expenses = data.map(d => ({
+              id: d.id,
+              name: d.name,
+              amount: d.amount,
+              payer: d.payer,
+              note: d.note,
+              shared: JSON.parse(d.shared),
+              date: d.date
+            }));
+            saveToStorage();
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('無法從 D1 載入，使用 localStorage:', error);
+      }
+    }
+    loadFromStorage();
+  }
+
+  // 新增開支（同步到 D1 和 localStorage）
+  async function addExpense() {
     const name = document.getElementById('expenseName').value.trim();
     const amount = parseFloat(document.getElementById('expenseAmount').value);
     const payer = document.getElementById('expensePayer').value;
@@ -350,6 +397,34 @@
     };
     
     expenses.push(expense);
+    
+    // 嘗試同步到 D1
+    if (isOnline) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(expense)
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          // 更新 ID 為 D1 返回的 ID
+          if (result.id) {
+            const idx = expenses.findIndex(e => e.id === expense.id);
+            if (idx !== -1) {
+              expenses[idx].id = result.id;
+            }
+          }
+          hasMigrated = true;
+          localStorage.setItem('splitbill_migrated', 'true');
+        }
+      } catch (error) {
+        console.warn('無法同步到 D1:', error);
+      }
+    }
+    
+    // 永遠保存到 localStorage（作為備份和離線使用）
     saveToStorage();
     resetForm();
     updateUI();
@@ -363,10 +438,23 @@
     document.querySelectorAll('.share-person').forEach(cb => cb.checked = true);
   }
 
-  // 刪除開支
-  function deleteExpense(id) {
+  // 刪除開支（同步到 D1）
+  async function deleteExpense(id) {
     if (confirm('確定要刪除此筆開支？')) {
       expenses = expenses.filter(e => e.id !== id);
+      
+      // 嘗試從 D1 刪除
+      if (isOnline) {
+        try {
+          await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
+            method: 'DELETE'
+          });
+        } catch (error) {
+          console.warn('無法從 D1 刪除:', error);
+        }
+      }
+      
+      // 更新 localStorage
       saveToStorage();
       updateUI();
     }
@@ -566,6 +654,82 @@
     }
   }
 
+  // 同步到 D1（用於網路恢復時）
+  async function syncToD1() {
+    if (!hasMigrated && expenses.length > 0) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/migrate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expenses })
+        });
+        
+        if (response.ok) {
+          hasMigrated = true;
+          localStorage.setItem('splitbill_migrated', 'true');
+          console.log('成功同步資料到 D1');
+        }
+      } catch (error) {
+        console.error('同步失敗:', error);
+      }
+    }
+  }
+
+  // 顯示離線通知
+  function showOfflineNotification() {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #FEE2E2;
+      color: #DC2626;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-weight: 600;
+      z-index: 1000;
+    `;
+    notification.textContent = '🚫 無網路連線，使用離線模式';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (notification.parentNode) {
+        document.body.removeChild(notification);
+      }
+    }, 3000);
+  }
+
+  // 更新同步狀態指示器
+  function updateSyncStatus() {
+    const statusEl = document.getElementById('syncStatus');
+    if (!statusEl) return;
+    
+    if (isOnline) {
+      statusEl.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" width="16" height="16">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span style="font-size:12px;color:#047857">已連線</span>
+      `;
+    } else {
+      statusEl.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" width="16" height="16">
+          <line x1="1" y1="1" x2="23" y2="23"/>
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+          <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+        <span style="font-size:12px;color:#DC2626">離線模式</span>
+      `;
+    }
+  }
+
   // 匯出 JSON
   function exportData() {
     const data = JSON.stringify(expenses, null, 2);
@@ -582,16 +746,35 @@
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    input.onchange = e => {
+    input.onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = ev => {
+      reader.onload = async ev => {
         try {
           const data = JSON.parse(ev.target.result);
           if (Array.isArray(data)) {
             expenses = data;
             saveToStorage();
+            
+            // 嘗試遷移到 D1
+            if (isOnline && expenses.length > 0) {
+              try {
+                const response = await fetch(`${API_BASE_URL}/api/migrate`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ expenses })
+                });
+                
+                if (response.ok) {
+                  hasMigrated = true;
+                  localStorage.setItem('splitbill_migrated', 'true');
+                }
+              } catch (error) {
+                console.warn('無法遷移到 D1:', error);
+              }
+            }
+            
             updateUI();
             alert('成功匯入 ' + expenses.length + ' 筆開支記錄');
           } else {

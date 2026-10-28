@@ -1,0 +1,9 @@
+name = "split-billing-api"
+main = "worker/worker.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "D1"
+database_name = "split-billing"
+# Replace with your actual D1 database ID from Cloudflare dashboard
+database_id = "<your-d1-database-id-here>"ed0de160d" 
