@@ -112,6 +112,39 @@
   .person-name{font-size:14.5px;font-weight:600}
   .person-amount{font-size:18px;font-weight:700}
 
+  .summary-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;
+    background:linear-gradient(125deg,#172554,#1E3A5F 62%,#0E7490);color:#fff;
+    border-radius:var(--radius);padding:24px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .summary-hero-label{font-size:12px;letter-spacing:1.2px;opacity:.78;font-weight:700}
+  .summary-hero-total{font-size:clamp(30px,5vw,46px);line-height:1.15;font-weight:800;margin-top:8px}
+  .summary-hero-note{font-size:13px;opacity:.82;margin-top:8px}
+  .summary-metrics{display:flex;gap:24px;flex-wrap:wrap}
+  .summary-metric{min-width:100px}
+  .summary-metric-label{font-size:12px;opacity:.75}
+  .summary-metric-value{font-size:20px;font-weight:700;margin-top:3px}
+  .summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .summary-payer-list{display:flex;flex-direction:column;gap:14px}
+  .summary-payer{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:10px}
+  .summary-payer-name{font-size:13px;font-weight:700}
+  .summary-payer-track{height:7px;background:#F1F5F9;border-radius:99px;overflow:hidden;margin-top:5px}
+  .summary-payer-bar{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:99px}
+  .summary-payer-amount{font-size:13px;font-weight:700;white-space:nowrap}
+  .summary-table-wrap{overflow-x:auto}
+  .summary-table{width:100%;border-collapse:collapse;min-width:600px;font-size:13px}
+  .summary-table th,.summary-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right}
+  .summary-table th{color:var(--muted);font-size:11px;font-weight:700;white-space:nowrap}
+  .summary-table th:first-child,.summary-table td:first-child{text-align:left}
+  .summary-table tbody tr:last-child td{border-bottom:0}
+  .summary-table .summary-positive{color:var(--ok);font-weight:700}
+  .summary-table .summary-negative{color:var(--danger);font-weight:700}
+  .summary-expense-list{display:flex;flex-direction:column;gap:0}
+  .summary-expense{display:flex;justify-content:space-between;align-items:center;gap:16px;
+    padding:13px 4px;border-bottom:1px solid var(--line)}
+  .summary-expense:last-child{border-bottom:0}
+  .summary-expense-title{font-size:14px;font-weight:700}
+  .summary-expense-meta{font-size:12px;color:var(--muted);margin-top:3px}
+  .summary-expense-amount{font-size:15px;font-weight:800;color:var(--primary);white-space:nowrap}
+
   .settle-card{background:#FFF; border:2px solid var(--primary);border-radius:14px;padding:16px;margin-top:16px}
   .settle-card h3{color:var(--primary);margin:0 0 12px;border-bottom:2px solid var(--primary);padding-bottom:6px}
   .settle-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;
@@ -130,8 +163,15 @@
     .form-row{grid-template-columns:1fr}
     .stats-bar{grid-template-columns:repeat(2,1fr)}
     .stat-card .value{font-size:26px}
+    .summary-grid{grid-template-columns:1fr}
   }
   @media(max-width:480px){.stats-bar{grid-template-columns:1fr}}
+  @media(max-width:520px){
+    .summary-hero{align-items:flex-start;flex-direction:column;padding:20px}
+    .summary-metrics{width:100%;gap:16px}
+    .summary-expense{align-items:flex-start}
+    .summary-expense-amount{font-size:14px}
+  }
 
   /* 返回首頁按鈕 */
   .back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--ink);
@@ -188,6 +228,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>新增開支</span><span class="cnt" id="tabCountAdd">0</span></button>
         <button class="tab" data-tab="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>支出清單</span><span class="cnt" id="tabCountList">0</span></button>
+        <button class="tab" data-tab="summary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h17M8 15v-4M13 15V8M18 15V5"/></svg><span>旅費總結</span></button>
         <button class="tab" data-tab="result"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>結算明細</span><span class="cnt" id="tabCountResult">0</span></button>
       </div>
 
@@ -269,6 +310,54 @@
               <p style="font-size:12px;margin-top:6px">點擊「新增開支」開始記帳</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 旅費總結 -->
+      <div id="tab-summary" class="section">
+        <div class="summary-hero">
+          <div>
+            <div class="summary-hero-label">TRIP SPENDING</div>
+            <div class="summary-hero-total" id="summaryTotal">NT$ 0</div>
+            <div class="summary-hero-note">所有支出已換算為新台幣</div>
+          </div>
+          <div class="summary-metrics">
+            <div class="summary-metric">
+              <div class="summary-metric-label">支出筆數</div>
+              <div class="summary-metric-value" id="summaryCount">0 筆</div>
+            </div>
+            <div class="summary-metric">
+              <div class="summary-metric-label">平均每筆</div>
+              <div class="summary-metric-value" id="summaryAverage">NT$ 0</div>
+            </div>
+            <div class="summary-metric">
+              <div class="summary-metric-label">待結清</div>
+              <div class="summary-metric-value" id="summaryToSettle">NT$ 0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="card">
+            <h3>💳 付款分布</h3>
+            <div class="summary-payer-list" id="summaryPayers"></div>
+          </div>
+          <div class="card">
+            <h3>👥 每人旅費明細</h3>
+            <div class="summary-table-wrap">
+              <table class="summary-table">
+                <thead>
+                  <tr><th>成員</th><th>付款／代墊</th><th>本人分攤</th><th>應收</th><th>應付</th></tr>
+                </thead>
+                <tbody id="summaryPeople"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>🧾 旅費支出明細</h3>
+          <div class="summary-expense-list" id="summaryExpenses"></div>
         </div>
       </div>
 
@@ -677,6 +766,62 @@
     // 更新 Tab 計數
     document.getElementById('tabCountAdd').textContent = expenses.length;
     document.getElementById('tabCountList').textContent = expenses.length;
+    document.getElementById('tabCountResult').textContent = expenses.length;
+
+    document.getElementById('summaryTotal').textContent = 'NT$ ' + formatTwd(total);
+    document.getElementById('summaryCount').textContent = `${expenses.length} 筆`;
+    document.getElementById('summaryAverage').textContent =
+      'NT$ ' + formatTwd(expenses.length ? total / expenses.length : 0);
+    document.getElementById('summaryToSettle').textContent = 'NT$ ' + formatTwd(totalToSettle);
+
+    const summaryPayers = document.getElementById('summaryPayers');
+    summaryPayers.innerHTML = persons.map(person => {
+      const paid = settlement[person].paid;
+      const sharePercent = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+      return `
+        <div class="summary-payer">
+          <div class="summary-payer-name">${person}</div>
+          <div>
+            <div class="summary-payer-track" role="progressbar" aria-label="${person} 付款占比"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow="${sharePercent.toFixed(1)}">
+              <div class="summary-payer-bar" style="width:${sharePercent}%"></div>
+            </div>
+          </div>
+          <div class="summary-payer-amount">NT$ ${formatTwd(paid)}</div>
+        </div>
+      `;
+    }).join('');
+
+    const summaryPeople = document.getElementById('summaryPeople');
+    summaryPeople.innerHTML = persons.map(person => {
+      const summary = settlement[person];
+      const receive = Math.max(summary.differenceCents, 0) / 100;
+      const payable = Math.max(-summary.differenceCents, 0) / 100;
+      return `
+        <tr>
+          <td>${person}</td>
+          <td>NT$ ${formatTwd(summary.paid)}</td>
+          <td>NT$ ${formatTwd(summary.share)}</td>
+          <td class="summary-positive">NT$ ${formatTwd(receive)}</td>
+          <td class="summary-negative">NT$ ${formatTwd(payable)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const summaryExpenses = document.getElementById('summaryExpenses');
+    summaryExpenses.innerHTML = expenses.length
+      ? expenses.map(expense => `
+          <div class="summary-expense">
+            <div>
+              <div class="summary-expense-title">${expense.name}</div>
+              <div class="summary-expense-meta">
+                ${expense.date} · ${expense.payer} 付款 · ${(expense.shared || []).length} 人分攤${expense.note ? ` · ${expense.note}` : ''}
+              </div>
+            </div>
+            <div class="summary-expense-amount">NT$ ${formatTwd(Number(expense.amount) || 0)}</div>
+          </div>
+        `).join('')
+      : '<div class="empty"><p>尚未有旅費記錄</p><p style="font-size:12px;margin-top:6px">新增支出後，總結明細會自動更新</p></div>';
     
     // 更新支出清單
     const expenseList = document.getElementById('expenseList');
@@ -749,25 +894,27 @@
     let personalHtml = '';
     persons.forEach(p => {
       const s = settlement[p];
-      const color = s.difference > 0 ? '#047857' : (s.difference < 0 ? '#DC2626' : '#64748B');
-      const icon = s.difference > 0 ? '💰' : (s.difference < 0 ? '📉' : '⚖️');
-      const diffText = s.difference > 0 ? '應收款' : (s.difference < 0 ? '應付款' : '已平衡');
-      const diffVal = Math.abs(s.difference);
+      const receiveAmount = Math.max(s.differenceCents, 0) / 100;
+      const payableAmount = Math.max(-s.differenceCents, 0) / 100;
       
       personalHtml += `
         <div class="result-card">
-          <h3>${p} - ${icon}</h3>
+          <h3>${p}</h3>
           <div class="person-row">
-            <span>實際支付</span>
+            <span>付款／代墊金額</span>
             <span>NT$ ${formatTwd(s.paid)}</span>
           </div>
           <div class="person-row">
-            <span>應付金額</span>
+            <span>本人應分攤</span>
             <span>NT$ ${formatTwd(s.share)}</span>
           </div>
-          <div class="person-row" style="font-weight:700;color:${color}">
-            <span>${diffText}</span>
-            <span>NT$ ${formatTwd(diffVal)}</span>
+          <div class="person-row" style="font-weight:700;color:#047857">
+            <span>應收金額</span>
+            <span>NT$ ${formatTwd(receiveAmount)}</span>
+          </div>
+          <div class="person-row" style="font-weight:700;color:#DC2626">
+            <span>應付金額</span>
+            <span>NT$ ${formatTwd(payableAmount)}</span>
           </div>
         </div>
       `;
