@@ -66,7 +66,7 @@ async function addExpense(request, env) {
 
     const result = await env.D1.prepare(
       "INSERT INTO expenses (name, amount, payer, note, shared, date) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(expense.name, expense.amount, expense.payer, expense.note, expense.shared, expense.date);
+    ).bind(expense.name, expense.amount, expense.payer, expense.note, expense.shared, expense.date).run();
 
     return jsonResponse({ id: result.meta.last_row_id, ...expense }, 201);
   } catch (error) {
@@ -83,7 +83,7 @@ async function deleteExpense(request, env, path) {
       return jsonResponse({ error: "Invalid expense ID" }, 400);
     }
 
-    await env.D1.prepare("DELETE FROM expenses WHERE id = ?").run(id);
+    await env.D1.prepare("DELETE FROM expenses WHERE id = ?").bind(id).run();
     return jsonResponse({ success: true });
   } catch (error) {
     console.error("Error deleting expense:", error);
@@ -104,14 +104,14 @@ async function migrateFromLocalStorage(request, env) {
     for (const expense of expenses) {
       await env.D1.prepare(
         "INSERT INTO expenses (name, amount, payer, note, shared, date) VALUES (?, ?, ?, ?, ?, ?)"
-      ).run(
+      ).bind(
         expense.name,
         expense.amount,
         expense.payer,
         expense.note || "",
         JSON.stringify(expense.shared),
         expense.date
-      );
+      ).run();
       count++;
     }
 
