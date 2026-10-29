@@ -201,8 +201,17 @@
               <input type="text" id="expenseName" placeholder="例如：餐廳、景點門票">
             </div>
             <div class="form-group">
-              <label>金額</label>
+              <label for="expenseAmount">金額</label>
               <input type="number" id="expenseAmount" class="type-amount" placeholder="0" min="0">
+            </div>
+            <div class="form-group">
+              <label for="expenseCurrency">幣別</label>
+              <select id="expenseCurrency">
+                <option value="TWD">新台幣 (TWD)</option>
+                <option value="EUR">歐元 (EUR)</option>
+                <option value="CZK">克朗 (CZK)</option>
+              </select>
+              <small id="amountConversion" aria-live="polite" style="color:var(--muted);margin-top:5px">記帳金額：NT$ 0</small>
             </div>
             <div class="form-group">
               <label>付款人</label>
@@ -308,6 +317,10 @@
   document.addEventListener('DOMContentLoaded', async function() {
     // 嘗試從 D1 載入，失敗則從 localStorage 載入
     await loadExpenses();
+
+    document.getElementById('expenseAmount').addEventListener('input', updateAmountConversion);
+    document.getElementById('expenseCurrency').addEventListener('change', updateAmountConversion);
+    updateAmountConversion();
     
     // Tab 切換
     document.querySelectorAll('.tab').forEach(tab => {
@@ -373,13 +386,15 @@
   // 新增開支（同步到 D1 和 localStorage）
   async function addExpense() {
     const name = document.getElementById('expenseName').value.trim();
-    const amount = parseFloat(document.getElementById('expenseAmount').value);
+    const enteredAmount = parseFloat(document.getElementById('expenseAmount').value);
+    const currency = document.getElementById('expenseCurrency').value;
+    const amount = convertToTwd(enteredAmount, currency);
     const payer = document.getElementById('expensePayer').value;
     const note = document.getElementById('expenseNote').value.trim();
     
     const sharedPersons = Array.from(document.querySelectorAll('.share-person:checked')).map(cb => cb.value);
     
-    if (!name || isNaN(amount) || amount <= 0) {
+    if (!name || isNaN(enteredAmount) || enteredAmount <= 0) {
       alert('請輸入項目名稱和正確的金額');
       return;
     }
@@ -427,6 +442,19 @@
     }
   }
 
+  function convertToTwd(amount, currency) {
+    const rates = { TWD: 1, EUR: 36.3, CZK: 1.5 };
+    return amount * rates[currency];
+  }
+
+  function updateAmountConversion() {
+    const amount = parseFloat(document.getElementById('expenseAmount').value);
+    const currency = document.getElementById('expenseCurrency').value;
+    const preview = document.getElementById('amountConversion');
+    const twdAmount = Number.isFinite(amount) && amount > 0 ? convertToTwd(amount, currency) : 0;
+    preview.textContent = `記帳金額：NT$ ${twdAmount.toLocaleString('zh-TW', { maximumFractionDigits: 2 })}`;
+  }
+
   async function syncExpenseToD1(expense) {
     const response = await fetch(`${API_BASE_URL}/api/expenses`, {
       method: 'POST',
@@ -457,7 +485,9 @@
   function resetForm() {
     document.getElementById('expenseName').value = '';
     document.getElementById('expenseAmount').value = '';
+    document.getElementById('expenseCurrency').value = 'TWD';
     document.getElementById('expenseNote').value = '';
+    updateAmountConversion();
     document.querySelectorAll('.share-person').forEach(cb => cb.checked = true);
   }
 
