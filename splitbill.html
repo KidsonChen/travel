@@ -355,32 +355,94 @@
 
   // 載入支出資料（優先從 D1，失敗則從 localStorage）
   async function loadExpenses() {
-    if (hasMigrated && isOnline) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/expenses`);
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data) && data.length > 0) {
-            expenses = data.map(d => ({
-              id: d.id,
-              name: d.name,
-              amount: d.amount,
-              payer: d.payer,
-              note: d.note,
-              shared: JSON.parse(d.shared),
-              date: d.date
-            }));
-            saveToStorage();
-            console.log('✅ 從 D1 載入', expenses.length, '筆資料');
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ 無法從 D1 載入，使用 localStorage:', error);
-      }
-    }
     loadFromStorage();
-    console.log('📂 從 localStorage 載入', expenses.length, '筆資料');
+    if (!isOnline) {
+      console.log('📂 離線，從 localStorage 載入', expenses.length, '筆資料');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/expenses`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error('D1 回傳的支出資料格式不正確');
+      }
+
+      if (data.length > 0) {
+        expenses = data.map(d => ({
+          id: d.id,
+          name: d.name,
+          amount: Number(d.amount),
+          payer: d.payer,
+          note: d.note || '',
+          shared: typeof d.shared === 'string' ? JSON.parse(d.shared) : d.shared,
+          date: d.date
+        }));
+        hasMigrated = true;
+        localStorage.setItem('splitbill_migrated', 'true');
+        saveToStorage();
+        console.log('✅ 從 D1 載入', expenses.length, '筆資料');
+        return;
+      }
+
+      if (expenses.length === 0) {
+        console.log('ℹ️ D1 和此網址的 localStorage 都沒有支出');
+        return;
+      }
+
+      const shouldMigrate = confirm(
+        `D1 目前沒有支出，但此網址的瀏覽器中找到 ${expenses.length} 筆本機資料。要將這些資料同步到 D1 嗎？`
+      );
+      if (!shouldMigrate) {
+        console.log('ℹ️ 保留本機資料，未同步到 D1');
+        return;
+      }
+
+      const migrationResponse = await fetch(`${API_BASE_URL}/api/migrate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expenses })
+      });
+      const migrationResult = await migrationResponse.json().catch(() => ({}));
+      if (!migrationResponse.ok) {
+        throw new Error(
+          `HTTP ${migrationResponse.status}: ${migrationResult.details || migrationResult.error || migrationResponse.statusText}`
+        );
+      }
+
+      const refreshedResponse = await fetch(`${API_BASE_URL}/api/expenses`);
+      if (!refreshedResponse.ok) {
+        throw new Error(`資料已送出，但重新讀取 D1 失敗：HTTP ${refreshedResponse.status}`);
+      }
+      const refreshedData = await refreshedResponse.json();
+      if (!Array.isArray(refreshedData)) {
+        throw new Error('資料已送出，但 D1 回傳的支出資料格式不正確');
+      }
+      if (refreshedData.length === 0 && migrationResult.migrated > 0) {
+        throw new Error('D1 回報已收到資料，但重新讀取時仍沒有支出；本機資料已保留');
+      }
+
+      expenses = refreshedData.map(d => ({
+        id: d.id,
+        name: d.name,
+        amount: Number(d.amount),
+        payer: d.payer,
+        note: d.note || '',
+        shared: typeof d.shared === 'string' ? JSON.parse(d.shared) : d.shared,
+        date: d.date
+      }));
+      hasMigrated = true;
+      localStorage.setItem('splitbill_migrated', 'true');
+      saveToStorage();
+      console.log('✅ 已將本機資料同步到 D1', migrationResult);
+    } catch (error) {
+      console.error('⚠️ D1 載入或本機資料同步失敗，保留 localStorage 資料:', error);
+      alert(`無法載入或同步 D1 資料；目前顯示此網址的本機資料。\n錯誤：${error.message}`);
+    }
   }
 
   // 新增開支（同步到 D1 和 localStorage）
