@@ -175,7 +175,7 @@
           <div class="value" id="perPerson">NT$ 0</div>
         </div>
         <div class="stat-card">
-          <h3>💰 應付總額</h3>
+          <h3>💸 待結清總額</h3>
           <div class="value" id="totalSettle">NT$ 0</div>
         </div>
         <div class="stat-card">
@@ -506,7 +506,7 @@
 
   function convertToTwd(amount, currency) {
     const rates = { TWD: 1, EUR: 36.3, CZK: 1.5 };
-    return amount * rates[currency];
+    return Math.round(amount * rates[currency] * 100) / 100;
   }
 
   function updateAmountConversion() {
@@ -578,65 +578,87 @@
   // 計算結算
   function calculateSettlement() {
     const settlement = {};
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalCents = expenses.reduce((sum, expense) => sum + toCents(expense.amount), 0);
+    const total = totalCents / 100;
     const perPerson = total / persons.length;
     
     // 初始化每人帳戶
     persons.forEach(p => {
-      settlement[p] = { paid: 0, share: 0, difference: 0 };
+      settlement[p] = { paid: 0, share: 0, difference: 0, paidCents: 0, shareCents: 0, differenceCents: 0 };
     });
     
-    // 計算每人實際支付和應該支付
+    // 以分為單位計算，將無法整除的餘數依分攤名單順序分配
     expenses.forEach(e => {
-      settlement[e.payer].paid += e.amount;
-      const sharePerPerson = e.amount / e.shared.length;
-      e.shared.forEach(person => {
-        settlement[person].share += sharePerPerson;
+      const amountCents = toCents(e.amount);
+      if (settlement[e.payer]) {
+        settlement[e.payer].paidCents += amountCents;
+      }
+
+      const sharedPeople = [...new Set(e.shared)].filter(person => settlement[person]);
+      if (sharedPeople.length === 0) {
+        return;
+      }
+
+      const baseShareCents = Math.floor(amountCents / sharedPeople.length);
+      const remainderCents = amountCents % sharedPeople.length;
+      sharedPeople.forEach((person, index) => {
+        settlement[person].shareCents += baseShareCents + (index < remainderCents ? 1 : 0);
       });
     });
     
-    // 計算差額
+    // 正數代表應收，負數代表應付
     persons.forEach(p => {
-      settlement[p].difference = settlement[p].paid - settlement[p].share;
+      settlement[p].paid = settlement[p].paidCents / 100;
+      settlement[p].share = settlement[p].shareCents / 100;
+      settlement[p].differenceCents = settlement[p].paidCents - settlement[p].shareCents;
+      settlement[p].difference = settlement[p].differenceCents / 100;
     });
     
-    // 計算實際需要轉帳的金額（使用最小轉帳次數演算法）
+    // 依淨額配對，避免浮點誤差和逐筆四捨五入造成帳目不平
     const debts = [];
     const credits = [];
     
     persons.forEach(p => {
-      if (settlement[p].difference < -0.01) {
-        debts.push({ person: p, amount: -settlement[p].difference });
-      } else if (settlement[p].difference > 0.01) {
-        credits.push({ person: p, amount: settlement[p].difference });
+      if (settlement[p].differenceCents < 0) {
+        debts.push({ person: p, amountCents: -settlement[p].differenceCents });
+      } else if (settlement[p].differenceCents > 0) {
+        credits.push({ person: p, amountCents: settlement[p].differenceCents });
       }
     });
     
     // 排序：欠錢多的優先，收款多的優先
-    debts.sort((a, b) => b.amount - a.amount);
-    credits.sort((a, b) => b.amount - a.amount);
+    debts.sort((a, b) => b.amountCents - a.amountCents);
+    credits.sort((a, b) => b.amountCents - a.amountCents);
     
     const transactions = [];
     let debtIdx = 0;
     let creditIdx = 0;
     
     while (debtIdx < debts.length && creditIdx < credits.length) {
-      const minAmount = Math.min(debts[debtIdx].amount, credits[creditIdx].amount);
+      const amountCents = Math.min(debts[debtIdx].amountCents, credits[creditIdx].amountCents);
       
       transactions.push({
         from: debts[debtIdx].person,
         to: credits[creditIdx].person,
-        amount: minAmount
+        amount: amountCents / 100
       });
       
-      debts[debtIdx].amount -= minAmount;
-      credits[creditIdx].amount -= minAmount;
+      debts[debtIdx].amountCents -= amountCents;
+      credits[creditIdx].amountCents -= amountCents;
       
-      if (debts[debtIdx].amount < 0.01) debtIdx++;
-      if (credits[creditIdx].amount < 0.01) creditIdx++;
+      if (debts[debtIdx].amountCents === 0) debtIdx++;
+      if (credits[creditIdx].amountCents === 0) creditIdx++;
     }
     
     return { total, perPerson, settlement, transactions };
+  }
+
+  function toCents(amount) {
+    return Math.round(Number(amount) * 100);
+  }
+
+  function formatTwd(amount) {
+    return amount.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
 
   // 更新 UI
@@ -645,10 +667,11 @@
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     const perPerson = expenses.length > 0 ? total / persons.length : 0;
     const { settlement, transactions } = calculateSettlement();
+    const totalToSettle = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
     
-    document.getElementById('totalExpenses').textContent = 'NT$ ' + total.toLocaleString();
-    document.getElementById('perPerson').textContent = 'NT$ ' + perPerson.toLocaleString();
-    document.getElementById('totalSettle').textContent = 'NT$ ' + total.toLocaleString();
+    document.getElementById('totalExpenses').textContent = 'NT$ ' + formatTwd(total);
+    document.getElementById('perPerson').textContent = 'NT$ ' + formatTwd(perPerson);
+    document.getElementById('totalSettle').textContent = 'NT$ ' + formatTwd(totalToSettle);
     document.getElementById('recordCount').textContent = expenses.length;
     
     // 更新 Tab 計數
@@ -705,7 +728,7 @@
             <span class="from">${t.from} ➝</span>
             <span class="arrow">➤</span>
             <span class="to">${t.to}</span>
-            <span class="amount">NT$ ${Math.round(t.amount).toLocaleString()}</span>
+            <span class="amount">NT$ ${formatTwd(t.amount)}</span>
           </div>
         `;
       });
@@ -736,15 +759,15 @@
           <h3>${p} - ${icon}</h3>
           <div class="person-row">
             <span>實際支付</span>
-            <span>NT$ ${s.paid.toLocaleString()}</span>
+            <span>NT$ ${formatTwd(s.paid)}</span>
           </div>
           <div class="person-row">
             <span>應付金額</span>
-            <span>NT$ ${s.share.toLocaleString()}</span>
+            <span>NT$ ${formatTwd(s.share)}</span>
           </div>
           <div class="person-row" style="font-weight:700;color:${color}">
             <span>${diffText}</span>
-            <span>NT$ ${diffVal.toLocaleString()}</span>
+            <span>NT$ ${formatTwd(diffVal)}</span>
           </div>
         </div>
       `;
