@@ -153,6 +153,16 @@
   .settle-row .arrow{color:var(--primary);font-size:18px}
   .settle-row .to{font-size:14px;color:var(--secondary);font-weight:600}
   .settle-row .amount{font-size:16px;font-weight:700;color:var(--primary)}
+  .payer-debt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+  .payer-debt-card{background:#FFFBF7;border:1px solid var(--line);border-radius:14px;padding:14px}
+  .payer-debt-header{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .payer-debt-name{font-size:15px;font-weight:700}
+  .payer-debt-total{font-size:14px;font-weight:800;color:var(--primary);white-space:nowrap}
+  .payer-debt-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;
+    border-bottom:1px solid var(--line);font-size:13px}
+  .payer-debt-row:last-child{border-bottom:0}
+  .payer-debt-empty{padding:12px 0 2px;color:var(--muted);font-size:12px}
 
   /* Empty States */
   .empty{padding:40px 20px;text-align:center;color:var(--muted)}
@@ -378,7 +388,20 @@
         </div>
         
         <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg> 個人結算明細</h3>
+          <h3>💳 付款人應收明細</h3>
+          <p style="font-size:12px;color:var(--muted);margin:-4px 0 14px">
+            依每筆支出的分攤對象計算，未與其他人應付金額互抵。
+          </p>
+          <div class="payer-debt-grid" id="payerDebtList">
+            <div class="empty">
+              <p>尚無支出記錄</p>
+              <p style="font-size:12px;margin-top:6px">新增開支後會列出各付款人應收金額</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>個人結算明細</h3>
           <div id="personalSettlements">
             <div class="empty">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -742,6 +765,32 @@
     return { total, perPerson, settlement, transactions };
   }
 
+  function calculatePayerDebts() {
+    const debts = {};
+    persons.forEach(payer => {
+      debts[payer] = Object.fromEntries(persons.map(person => [person, 0]));
+    });
+
+    expenses.forEach(expense => {
+      if (!debts[expense.payer]) return;
+
+      const sharedPeople = [...new Set(Array.isArray(expense.shared) ? expense.shared : [])]
+        .filter(person => persons.includes(person));
+      if (sharedPeople.length === 0) return;
+
+      const amountCents = toCents(expense.amount);
+      const baseShareCents = Math.floor(amountCents / sharedPeople.length);
+      const remainderCents = amountCents % sharedPeople.length;
+      sharedPeople.forEach((person, index) => {
+        if (person !== expense.payer) {
+          debts[expense.payer][person] += baseShareCents + (index < remainderCents ? 1 : 0);
+        }
+      });
+    });
+
+    return debts;
+  }
+
   function toCents(amount) {
     return Math.round(Number(amount) * 100);
   }
@@ -767,6 +816,35 @@
     document.getElementById('tabCountAdd').textContent = expenses.length;
     document.getElementById('tabCountList').textContent = expenses.length;
     document.getElementById('tabCountResult').textContent = expenses.length;
+
+    const payerDebts = calculatePayerDebts();
+    document.getElementById('payerDebtList').innerHTML = expenses.length ? persons.map(payer => {
+      const debtors = persons
+        .filter(person => person !== payer && payerDebts[payer][person] > 0)
+        .map(person => ({ person, amountCents: payerDebts[payer][person] }));
+      const totalCents = debtors.reduce((sum, debtor) => sum + debtor.amountCents, 0);
+      return `
+        <section class="payer-debt-card" aria-label="${payer}的應收明細">
+          <div class="payer-debt-header">
+            <span class="payer-debt-name">${payer} 收款</span>
+            <span class="payer-debt-total">NT$ ${formatTwd(totalCents / 100)}</span>
+          </div>
+          ${debtors.length
+            ? debtors.map(debtor => `
+                <div class="payer-debt-row">
+                  <span>${debtor.person} 應付</span>
+                  <strong>NT$ ${formatTwd(debtor.amountCents / 100)}</strong>
+                </div>
+              `).join('')
+            : '<div class="payer-debt-empty">目前沒有其他人需要給這位付款人</div>'}
+        </section>
+      `;
+    }).join('') : `
+      <div class="empty">
+        <p>尚無支出記錄</p>
+        <p style="font-size:12px;margin-top:6px">新增開支後會列出各付款人應收金額</p>
+      </div>
+    `;
 
     document.getElementById('summaryTotal').textContent = 'NT$ ' + formatTwd(total);
     document.getElementById('summaryCount').textContent = `${expenses.length} 筆`;
